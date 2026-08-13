@@ -753,7 +753,11 @@ body::before{opacity:.25}
     var PYOD_EXEC="https://script.google.com/macros/s/AKfycbwlDDCWWzOWYZsUpBU9uqsQ7aenQ469PF6s6FkNlBFS1_cJSU5njG9oQmuyELy5zlqzFg/exec";
     function _pyodCerrar(){ try{localStorage.removeItem(PORTERO_LSK);sessionStorage.removeItem("pyod_rol");}catch(e){} location.reload(); }
     function _pyodAviso(){ if(document.getElementById("pyodAviso"))return; var d=document.createElement("div");d.id="pyodAviso";d.style.cssText="position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:2147483000;max-width:min(560px,92vw);background:#221E17;color:#F1EDE3;border:1px solid rgba(255,255,255,.14);border-left:3px solid #B98B3C;border-radius:12px;padding:14px 16px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:13px;line-height:1.5;box-shadow:0 18px 48px rgba(0,0,0,.5)";d.innerHTML='<b style=\"color:#B98B3C\">Tu sesión es válida.</b> Este tablero no validó tu acceso: su backend (Apps Script) necesita re-desplegarse. Tu sesión NO se cerró. <a href=\"https://alexpueblag.github.io/yod-portal/os/\" style=\"color:#B98B3C\">Volver a YOD OS</a> · <button id=\"pyodAvX\" style=\"background:none;border:0;color:#8A8272;cursor:pointer;text-decoration:underline;font:inherit\">Ocultar</button>';document.body.appendChild(d);var x=document.getElementById("pyodAvX");if(x)x.onclick=function(){d.remove();}; }
-    function credencialRechazada(){ var k=""; try{k=localStorage.getItem(PORTERO_LSK)||"";}catch(e){} if(!k){_pyodCerrar();return;} fetch(PYOD_EXEC+"?recurso=canje&t="+encodeURIComponent(k),{credentials:"omit"}).then(function(r){return r.json();}).then(function(j){ if(j&&j.ok){_pyodAviso();} else {_pyodCerrar();} }).catch(function(){_pyodAviso();}); }
+    /* ANTI-LOOP (agosto 2026): con el dominio suspendido el backend contesta
+       "liga" a las claves del portero de respaldo aunque la sesión sea válida.
+       Antes esto borraba la credencial y recargaba → bucle. Ahora nunca cierra
+       la sesión por "liga": solo avisa. La sesión se suelta solo desde "Salir". */
+    function credencialRechazada(){ _pyodAviso(); }
 
     /* ============ DATA ============ */
     var AURUM = window.AURUM || {};
@@ -1474,6 +1478,23 @@ body::before{opacity:.25}
       var ed=document.getElementById("editor");
       if(document.visibilityState==="visible" && CONFIG.SHEET_URL && !(ed&&ed.classList.contains("on")) && state.screen==="house") fetchData(false);
     },600000);
+    /* Respaldo empacado (agosto 2026): datos.json es una foto de este Sheet,
+       para que Interiores nunca aparezca en blanco mientras el dominio esté
+       suspendido y el backend rechace la clave del portero de respaldo. Solo
+       lectura; al reactivar Google el fetch en vivo vuelve a mandar. */
+    function aplicarDatos(j, badge){
+      if(!j||!j.meta) return false;
+      if(!j.meta.logo && window.__SNAP_LOGO__) j.meta.logo=window.__SNAP_LOGO__;
+      AURUM=j; window.AURUM=j;
+      try{localStorage.setItem(CACHE_KEY,JSON.stringify(j));localStorage.setItem(CACHE_TS_KEY,String(Date.now()));}catch(e){}
+      if(j._projects && j._projects.length) PROJECTS=normalizeProjects(j._projects);
+      DATA_READY=true; loadSelection(); render(); setBadge(badge||"cache"); return true;
+    }
+    function cargarRespaldoLocal(){
+      fetch("datos.json?cb="+Date.now(),{cache:"no-store"}).then(function(r){return r.json();})
+        .then(function(j){ if(!aplicarDatos(j,"cache")){ /* si no hay meta, cae al cache local */ var c=null; try{c=JSON.parse(localStorage.getItem(CACHE_KEY));}catch(_){}; if(c) aplicarDatos(c,"cache"); } })
+        .catch(function(){ var c=null; try{c=JSON.parse(localStorage.getItem(CACHE_KEY));}catch(_){}; if(c) aplicarDatos(c,"cache"); else { DATA_READY=true; setBadge("error"); render(); } });
+    }
     function fetchData(manual){
       if(!CONFIG.SHEET_URL){ setBadge("snapshot"); return; }
       setBadge("loading");
@@ -1481,7 +1502,7 @@ body::before{opacity:.25}
       var ctrl=new AbortController(), t=setTimeout(function(){ctrl.abort();},CONFIG.FETCH_TIMEOUT);
       fetch(url,{signal:ctrl.signal,credentials:"omit"}).then(function(r){return r.json();}).then(function(j){
         clearTimeout(t);
-        if(j&&j.error==="liga"){ credencialRechazada(); return; }
+        if(j&&j.error==="liga"){ credencialRechazada(); cargarRespaldoLocal(); return; }
         if(j&&j.meta){ if(!j.meta.logo && window.__SNAP_LOGO__) j.meta.logo=window.__SNAP_LOGO__;
           LAST_FETCH=Date.now();
           var same=false; try{ same=(JSON.stringify(j)===JSON.stringify(AURUM)); }catch(e){}
@@ -1495,7 +1516,7 @@ body::before{opacity:.25}
         clearTimeout(t); console.warn("[llave-maestra] fetch falló:",e&&e.message);
         var c=null; try{c=JSON.parse(localStorage.getItem(CACHE_KEY));}catch(_){}
         if(c&&c.meta){ if(!c.meta.logo && window.__SNAP_LOGO__) c.meta.logo=window.__SNAP_LOGO__; AURUM=c; if(c._projects&&c._projects.length) PROJECTS=normalizeProjects(c._projects); DATA_READY=true; loadSelection(); render(); setBadge("cache"); }
-        else { DATA_READY=true; setBadge("error"); render(); }
+        else { cargarRespaldoLocal(); }
       });
     }
 
