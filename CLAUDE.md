@@ -81,7 +81,7 @@ Frontend single-file HTML+CSS+JS vanilla (sin build); fuentes Fraunces/Inter/Spl
 
 ## URLs y datos
 
-- Tablero en vivo: https://tableros.yodesarrollo.mx/interiores-aurum/llave-maestra.html
+- Tablero en vivo: https://yodesarrollomx.github.io/interiores-aurum/llave-maestra.html
 - Repo (público): https://github.com/alexpueblag/interiores-aurum (subir HTML a la RAÍZ)
 - API (SHEET_URL): la URL /exec de la implementación NUEVA se pega en CONFIG.SHEET_URL (el deployment anterior quedó archivado en la contención 2026-07-12)
 - Google Sheet (16 hojas): https://docs.google.com/spreadsheets/d/1gRFwq27ec8nM6g_3LG7xW6ORpLhOyTWkPPUQWgAnsok/edit

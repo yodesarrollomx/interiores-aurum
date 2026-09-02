@@ -10,7 +10,7 @@ Tres archivos:
 ## 1) Subir el board (1 min)
 1. Repo `interiores-aurum` (usuario alexpueblag) → **Add file ▸ Upload files**.
 2. Arrastra **llave-maestra.html** (mismo nombre, en la raíz) → **Commit changes**.
-3. Espera ~1 min. URL: `https://tableros.yodesarrollo.mx/interiores-aurum/llave-maestra.html`
+3. Espera ~1 min. URL: `https://yodesarrollomx.github.io/interiores-aurum/llave-maestra.html`
 
 Ya con esto funciona el **arreglo de imágenes** y el **modo diseñadora en local** (puedes editar y se ve al instante). Para que lo que edites **se guarde en el Sheet**, falta el paso 2.
 
