@@ -49,7 +49,7 @@ NO se re-desplegó Apps Script (doGet lee encabezados dinámicamente; doPost map
 
 ## Stack
 
-Frontend single-file HTML+CSS+JS vanilla (sin build); fuentes Fraunces/Inter/Spline Sans Mono/Poppins (precios). Backend Google Apps Script (`Code.gs`: doGet lee 16 hojas→JSON; doPost escribe con validación de secreto + log a "Historial"). Datos en Google Sheet. Hosting GitHub Pages (repo público `alexpueblag/interiores-aurum`).
+Frontend single-file HTML+CSS+JS vanilla (sin build); fuentes Fraunces/Inter/Spline Sans Mono/Poppins (precios). Backend Google Apps Script (`Code.gs`: doGet lee 16 hojas→JSON; doPost escribe con validación de secreto + log a "Historial"). Datos en Google Sheet. Hosting GitHub Pages (repo público `yodesarrollomx/interiores-aurum`).
 
 ## Archivos del repo
 
@@ -82,7 +82,7 @@ Frontend single-file HTML+CSS+JS vanilla (sin build); fuentes Fraunces/Inter/Spl
 ## URLs y datos
 
 - Tablero en vivo: https://yodesarrollomx.github.io/interiores-aurum/llave-maestra.html
-- Repo (público): https://github.com/alexpueblag/interiores-aurum (subir HTML a la RAÍZ)
+- Repo (público): https://github.com/yodesarrollomx/interiores-aurum (subir HTML a la RAÍZ)
 - API (SHEET_URL): la URL /exec de la implementación NUEVA se pega en CONFIG.SHEET_URL (el deployment anterior quedó archivado en la contención 2026-07-12)
 - Google Sheet (16 hojas): https://docs.google.com/spreadsheets/d/1gRFwq27ec8nM6g_3LG7xW6ORpLhOyTWkPPUQWgAnsok/edit
 - CONFIG en el HTML: `SHEET_URL` (pegar tras redesplegar), `ENTRY_KEY` (selector suave, valor en el Sheet) (selector suave detrás del Portero), `FETCH_TIMEOUT=10000`. **Ya no hay secretos en el HTML**: el acceso lo gobierna el Portero YOD (portero.js; el backend exige la credencial `k` en cada petición) y la clave de diseñadora la valida el SERVIDOR contra `WRITE_SECRET` en Script Properties (rotar la anterior: quedó comprometida al estar publicada)
