@@ -20,7 +20,7 @@ Tablero web de **Aurum Arquitectos** donde el cliente recorre su programa de int
 4. **El acceso es fail-closed.** Sin credencial del Portero el backend no entrega ni un dato: `GET /exec` sin `k` responde `{"ok":false,"error":"liga"}` (verificado por curl 2026-09-04, `Code.gs:82`). Si tocas `doGet`/`doPost`, esa puerta se queda cerrada.
 5. **No truncar el texto que escribe la diseñadora.** Títulos, proveedor, atributos y opciones A/B se ven completos; si ella escribe más, debe verse (decisión 2026-06-25; en 1 línea solo quedan precios, pills, tags de acabado y breadcrumb).
 6. **Las fotos van a Drive, no al repo.** Subir → compartir "Cualquiera con el enlace · Lector" → pegar el link/ID en la celda del Sheet. Así Alejandro mantiene portadas sin Claude (`img/` quedó descartado para portadas).
-7. **Un solo dataset.** Hoy los 13 proyectos muestran los interiores de Navarro Muñoz. Activar un proyecto comercial deja ver interiores privados: por eso `alcinos, cabana, otorrino, pacifica, eyelab` siguen `active:no` a propósito.
+7. **Un solo dataset.** Hoy los 13 proyectos muestran los interiores de Navarro Muñoz. Activar un proyecto comercial deja ver interiores privados: por eso `pacifica, cabana, eyelab, otorrino` están `active:no`. **OJO — `alcinos` (Alcinos Showroom) está `active:sí`** en `datos.json` (verificado 2026-09-04), o sea que hoy sí abre y ve el dataset de Navarro Muñoz. Falta decidir si se apaga o si es a propósito (ver Por confirmar).
 8. **Validar antes de entregar** con el harness jsdom (carga el HTML real, stub de fetch). Y **las imágenes de Google se validan con curl, no con navegador headless**: playwright/jsdom las bloquea (memoria `llave-maestra-interiores`).
 
 ## Archivos
@@ -72,7 +72,7 @@ Almacenamiento local del navegador: `aurum_sel_v2` (selección), `aurum_cache_v1
 - **2026-06-09** — Un archivo HTML vanilla sin build, Sheets como base de datos y Apps Script como API: la diseñadora edita sin tocar código y se despliega subiendo el archivo. (CLAUDE.md previo.)
 - **2026-06-09** — Ocultar sin borrar (columna `oculto`): `liveRows()` lo filtra y queda fuera de BUYABLE/selección/totales/PDF, para que todo quede consistente sin parchar cada render.
 - **2026-06-09** — Observaciones por categoría (`obs_*` en Espacios), editables inline y visibles también en el PDF.
-- **2026-06-24 (Alejandro)** — La portada se administra desde la hoja `Proyectos` (`id,name,sub,active,key,cover,url`). Motivo: él cambia proyectos y fachadas sin pedirlo. Hoy: 13 proyectos = 8 residencias + 5 comerciales.
+- **2026-06-24 (Alejandro)** — La portada se administra desde la hoja `Proyectos` (`id,name,sub,active,key,cover,url`). Motivo: él cambia proyectos y fachadas sin pedirlo. Hoy son 13 proyectos en la hoja `Proyectos`: 9 con `active:sí` y 4 con `active:no` (`pacifica, cabana, eyelab, otorrino`). El reparto residencial/comercial no está en el dato — la hoja no trae columna de tipo.
 - **2026-06-25** — Imágenes por `lh3.googleusercontent.com/d/ID=wN` en vez de `drive.google.com/thumbnail`: thumbnail hace un 302 a lh3 en CADA foto (curl: lh3 ~0.5 s vs ~2-4 s). Commit `94bc8c3`.
 - **2026-06-25** — Se quitó el truncado del texto editable (ver regla 5). Commit `9e652ab`.
 - **2026-07-12** — Contención: se apagaron lecturas/escrituras y se retiró el secreto publicado `aurum-rnm-2026` (comprometido: estaba en el HTML público). `SECURITY-DEPLOY.md`.
@@ -105,7 +105,7 @@ Almacenamiento local del navegador: `aurum_sel_v2` (selección), `aurum_cache_v1
 3. **`instrucciones-llave-maestra.md` sigue publicando claves** en el repo público: `Sayri` (líneas 31, 73, 80) y `Mona` (líneas 40, 44, 77), y enseña un modo diseñadora que ya no existe desde el 1-ago.
 4. **`SECURITY-DEPLOY.md` manda configurar `WRITE_SECRET`**, que el `Code.gs` actual ya no usa para autorizar (usa `quienEs_` + rol). También dice "Implementación NUEVA", que choca con la regla 2 salvo por esa única vez de 2026-07-12.
 5. **Conteo de hojas:** el CLAUDE.md anterior decía "16 hojas"; `doGet` lee **17** (faltaba contar `Historial` o `Proyectos` en el total).
-6. **Ningún espacio trae `budget`**: los 12 renglones de `Espacios` tienen `budget` vacío en la copia, así que la barra de "presupuesto global" (clase `ok`/`over`) hoy no tiene contra qué comparar.
+6. **Ningún espacio trae presupuesto capturado**: los 12 renglones de `Espacios` traen `budget = 0` (cero, no celda vacía — `grep '"budget"' datos.json`), así que la barra de "presupuesto global" (clase `ok`/`over`) hoy no tiene contra qué comparar. No es una columna sin llenar: es una columna llena de ceros.
 7. **El comentario del código quedó viejo:** `llave-maestra.html:856` todavía dice `/* modo diseñadora (clave Sayri) */` aunque ya no hay clave.
 
 ## Por confirmar (preguntar, no asumir)
@@ -115,6 +115,7 @@ Almacenamiento local del navegador: `aurum_sel_v2` (selección), `aurum_cache_v1
 - ¿El Sheet `1gRFwq27…` sigue en **Restringido** (se cerró el 29-jul-2026)?
 - ¿Cuándo entra `tableros.yodesarrollo.mx` al DNS, para cambiar las ligas de un jalón?
 - ¿El 404 de `alexpueblag.github.io/interiores-aurum/` se deja así o le ponemos reenvío como a los demás tableros?
+- **¿`alcinos` (Alcinos Showroom) debe quedarse `active:sí`?** Hoy lo está, y como todos los proyectos comparten el mismo dataset, quien entre con su clave ve los interiores de Navarro Muñoz. Pregunta exacta: *¿lo apagamos como a los otros cuatro comerciales, o está prendido a propósito?*
 - ¿El harness jsdom de las 46 pruebas sigue existiendo y dónde vive? No está en este repo.
 
 ## Cómo se trabaja aquí
