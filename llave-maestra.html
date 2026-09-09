@@ -60,6 +60,8 @@ body::after{content:"";position:fixed;inset:-25%;z-index:0;pointer-events:none;b
 .badge[data-s="loading"] .dot{background:var(--gold);animation:pulse 1s infinite}
 .badge[data-s="error"] .dot{background:var(--err)}
 .badge[data-s="error"]{color:var(--err);border-color:rgba(224,96,90,.4)}
+.badge[data-s="pend"] .dot{background:var(--warn);animation:pulse 1s infinite}
+.badge[data-s="pend"]{color:var(--warn);border-color:var(--warn)}
 @keyframes pulse{50%{opacity:.3}}
 .btn{font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink);background:transparent;border:1px solid var(--line-2);
   padding:8px 14px;border-radius:var(--r-sm);cursor:pointer;transition:.18s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
@@ -690,6 +692,7 @@ body::before{opacity:.25}
     <div class="sp"></div>
     <span id="dz" style="display:flex;gap:8px;align-items:center"></span>
     <button class="badge" id="badge" data-s="snapshot" title="Estado de los datos"><span class="dot"></span><span class="t">Local · snapshot</span></button>
+    <button class="badge" id="pendBadge" data-s="pend" title="Cambios que el Sheet todavía no confirma" style="display:none"><span class="dot"></span><span class="t"></span></button>
     <button class="btn" id="refreshBtn" title="Actualizar"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.3M21 4v5h-5"/></svg><span class="lbl">Actualizar</span></button>
     <button class="btn btn--solid" id="pdfBtn"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 11l5 4 5-4M5 21h14"/></svg><span class="lbl">Exportar PDF</span></button>
   </div>
@@ -1795,22 +1798,37 @@ body::before{opacity:.25}
       Object.keys(NUMF).forEach(function(n){ if(n in rec) rec[n]=num(rec[n]); });
       if(sc.k!=="__i" && !String(rec[sc.k]||"").trim()){ setEdState((FLABEL[sc.k]||sc.k)+" es obligatorio",true); return; }
       if(sc.k==="id" && ED.key==null && recOf(ED.table,rec.id)){ setEdState("Ya existe una pieza con el id "+rec.id,true); return; }
-      applyRowLocal(ED.table, ED.key, rec);
+      /* antes de pintar el cambio guardamos cómo estaba: si el Sheet rechaza el guardado, lo deshacemos */
+      var table=ED.table, wasNew=(ED.key==null), prevRec=wasNew?null:recOf(table,ED.key);
+      applyRowLocal(table, ED.key, rec);
       var payload;
       if(sc.k==="__i"){ payload = (ED.key==null) ? {action:"append",tab:sc.tab,row:rec} : {action:"setRow",tab:sc.tab,index:Number(ED.key),row:rec}; }
       else { payload = {action:"upsert",tab:sc.tab,keyField:sc.k,key:rec[sc.k],row:rec}; }
       setEdState("guardando…");
       postSheet(payload).then(function(){ setEdState("guardado en el Sheet ✓"); finishEd(true); })
-        .catch(function(){ queuePost(payload); setEdState("guardado local; quedó en cola para sincronizar",true); showToast("Sin conexión con el Sheet: el cambio quedó en cola",{warn:true}); finishEd(true); });
+        .catch(function(){
+          revertRowLocal(table, wasNew, prevRec, rec);
+          queuePost(payload);
+          setEdState("el Sheet no confirmó: se deshizo el cambio en pantalla y quedó en cola para reintentar",true);
+          showToast("Sin conexión con el Sheet: se deshizo el cambio y quedó en cola",{warn:true});
+          finishEd(true);
+        });
     }
     function edDuplicate(){
-      if(!ED||ED.kind!=="row") return; var sc=SCHEMA[ED.table]; if(!sc||sc.k!=="id") return;
-      var rec=assign({},edCollect()); rec.id=nextId(ED.table); rec.name=String(rec.name||"")+" (copia)";
-      applyRowLocal(ED.table,null,rec);
+      if(!ED||ED.kind!=="row") return; var table=ED.table, sc=SCHEMA[table]; if(!sc||sc.k!=="id") return;
+      var rec=assign({},edCollect()); rec.id=nextId(table); rec.name=String(rec.name||"")+" (copia)";
+      applyRowLocal(table,null,rec);
       var payload={action:"upsert",tab:sc.tab,keyField:"id",key:rec.id,row:rec};
       postSheet(payload).then(function(){ showToast("Pieza duplicada y guardada en el Sheet"); })
-        .catch(function(){ queuePost(payload); showToast("Duplicada local; quedó en cola para sincronizar",{warn:true}); });
-      openEd(ED.table,rec.id); render();
+        .catch(function(){
+          /* el Sheet no confirmó la copia: la quitamos para no dejar en pantalla algo que nunca se guardó */
+          var arr=AURUM[table]||[], at=arr.indexOf(rec); if(at>-1) arr.splice(at,1);
+          loadSelection();
+          if(ED && ED.kind==="row" && ED.table===table && ED.key===rec.id) closeEd(); else render();
+          queuePost(payload);
+          showToast("No se pudo guardar la copia en el Sheet: se deshizo y quedó en cola",{warn:true});
+        });
+      openEd(table,rec.id); render();
     }
     function applyRowLocal(table,key,rec){
       var sc=SCHEMA[table], arr=AURUM[table]||(AURUM[table]=[]);
@@ -1819,16 +1837,40 @@ body::before{opacity:.25}
       else { for(var i=0;i<arr.length;i++){ if(String(arr[i][sc.k])===String(key)){ arr[i]=rec; loadSelection(); return; } } arr.push(rec); }
       loadSelection();
     }
+    /* deshace applyRowLocal cuando el Sheet no confirmó: ubica la fila por referencia (el
+       objeto exacto que applyRowLocal acomodó), no por el valor de su llave — si lo editado
+       era justo el campo llave (p.ej. renombrar un espacio por su "name"), buscar por el
+       valor viejo ya no la encuentra, porque la fila ya trae el valor nuevo */
+    function revertRowLocal(table,wasNew,prevRec,newRec){
+      var arr=AURUM[table]||(AURUM[table]=[]);
+      var at=arr.indexOf(newRec);
+      if(at<0){ loadSelection(); render(); return; }
+      if(wasNew) arr.splice(at,1); else if(prevRec) arr[at]=prevRec;
+      loadSelection(); render();
+    }
     function edDelete(){
       if(!ED||ED.key==null) return;
-      var sc=SCHEMA[ED.table];
+      var table=ED.table, key=ED.key, sc=SCHEMA[table];
       if(!confirm("¿Eliminar este "+sc.label+"? No se puede deshacer.")) return;
-      var arr=AURUM[ED.table]||[];
-      if(sc.k==="__i") arr.splice(Number(ED.key),1);
-      else AURUM[ED.table]=arr.filter(function(r){ return String(r[sc.k])!==String(ED.key); });
+      var arr=AURUM[table]||[];
+      /* guardamos la pieza y su lugar antes de quitarla: si el Sheet no confirma el borrado, la regresamos
+         a la vista — hoy desaparecía aunque el Sheet siguiera teniéndola, y eso engañaba */
+      var prevIdx=-1, prevRec=null;
+      if(sc.k==="__i"){ prevIdx=Number(key); prevRec=arr[prevIdx]; }
+      else { for(var ii=0;ii<arr.length;ii++){ if(String(arr[ii][sc.k])===String(key)){ prevIdx=ii; prevRec=arr[ii]; break; } } }
+      if(sc.k==="__i") arr.splice(Number(key),1);
+      else AURUM[table]=arr.filter(function(r){ return String(r[sc.k])!==String(key); });
       loadSelection();
-      var payload = (sc.k==="__i") ? {action:"delRow",tab:sc.tab,index:Number(ED.key)} : {action:"delete",tab:sc.tab,keyField:sc.k,key:ED.key};
-      postSheet(payload).then(function(){}).catch(function(){ queuePost(payload); showToast("Sin conexión: la eliminación quedó en cola",{warn:true}); });
+      var payload = (sc.k==="__i") ? {action:"delRow",tab:sc.tab,index:Number(key)} : {action:"delete",tab:sc.tab,keyField:sc.k,key:key};
+      postSheet(payload).then(function(){}).catch(function(){
+        if(prevRec){
+          var arr2=AURUM[table]||(AURUM[table]=[]), at=Math.min(prevIdx<0?arr2.length:prevIdx, arr2.length);
+          arr2.splice(at,0,prevRec);
+          loadSelection(); render();
+        }
+        queuePost(payload);
+        showToast("El Sheet no confirmó el borrado: se restauró la pieza y quedó en cola",{warn:true});
+      });
       finishEd(true);
     }
     function finishEd(clearDraft){ if(ED&&ED.dkey&&clearDraft){ try{localStorage.removeItem(ED.dkey);}catch(e){} } setTimeout(function(){ closeEd(); }, 750); }
@@ -1861,7 +1903,12 @@ body::before{opacity:.25}
         postSheet({action:"kv",tab:"Concepto",pairs:{style:style,statement:statement,definition:definition,body1:body[0]||"",body2:body[1]||""}}),
         postSheet({action:"list",tab:"Pilares",header:["titulo","texto"],rows:pillars.map(function(p){return [p.t,p.d];})})
       ]).then(function(){ setEdState("concepto guardado ✓"); finishEd(true); })
-       .catch(function(){ setEdState("guardado local; el Sheet no respondió",true); finishEd(false); });
+       .catch(function(){
+         /* este editor no tiene cola: si cerramos aquí el texto se pierde. Se queda abierto,
+            con lo escrito intacto, hasta que el Sheet confirme o la diseñadora reintente. */
+         setEdState("el Sheet no respondió — tu texto sigue aquí, vuelve a apretar Guardar cuando haya conexión",true);
+         showToast("El concepto no se guardó en el Sheet",{warn:true});
+       });
     }
     /* --- editor mood --- */
     function openMood(){
@@ -1889,7 +1936,12 @@ body::before{opacity:.25}
         postSheet({action:"list",tab:"Materiales",header:["material"],rows:materials.map(function(m){return [m];})}),
         postSheet({action:"list",tab:"Mood",header:["label","note","span","img"],rows:tiles.map(function(t){return [t.label,t.note,t.span,t.img];})})
       ]).then(function(){ setEdState("mood guardado ✓"); finishEd(true); })
-       .catch(function(){ setEdState("guardado local; el Sheet no respondió",true); finishEd(false); });
+       .catch(function(){
+         /* este editor no tiene cola: si cerramos aquí el texto se pierde. Se queda abierto,
+            con lo escrito intacto, hasta que el Sheet confirme o la diseñadora reintente. */
+         setEdState("el Sheet no respondió — tu texto sigue aquí, vuelve a apretar Guardar cuando haya conexión",true);
+         showToast("El mood & paleta no se guardó en el Sheet",{warn:true});
+       });
     }
 
     /* --- historial --- */
@@ -1933,13 +1985,22 @@ body::before{opacity:.25}
     var QKEY="aurum_postq_v1", QFLUSHING=false;
     function qload(){ try{ return JSON.parse(localStorage.getItem(QKEY))||[]; }catch(e){ return []; } }
     function qsave(q){ try{ localStorage.setItem(QKEY,JSON.stringify(q)); }catch(e){} }
-    function queuePost(payload){ var q=qload(); q.push(payload); qsave(q); }
+    function queuePost(payload){ var q=qload(); q.push(payload); qsave(q); refreshPendBadge(); }
+    /* pastilla junto al estado de datos: mientras la cola no esté vacía, que se vea a simple
+       vista que hay cambios sin confirmar (antes quedaban invisibles hasta que sincronizaban solos) */
+    function refreshPendBadge(){
+      var b=document.getElementById("pendBadge"); if(!b) return;
+      var n=qload().length;
+      if(!n){ b.style.display="none"; return; }
+      b.style.display="";
+      var t=b.querySelector(".t"); if(t) t.textContent=n+(n===1?" cambio pendiente por subir":" cambios pendientes por subir");
+    }
     function flushQueue(){
       if(QFLUSHING) return; if(!qload().length) return; QFLUSHING=true;
       (function step(){
         var q=qload();
-        if(!q.length){ QFLUSHING=false; showToast("Cambios pendientes sincronizados con el Sheet"); return; }
-        postSheet(assign({},q[0])).then(function(){ var q2=qload(); q2.shift(); qsave(q2); step(); })
+        if(!q.length){ QFLUSHING=false; refreshPendBadge(); showToast("Cambios pendientes sincronizados con el Sheet"); fetchData(false); return; }
+        postSheet(assign({},q[0])).then(function(){ var q2=qload(); q2.shift(); qsave(q2); refreshPendBadge(); step(); })
           .catch(function(){ QFLUSHING=false; });
       })();
     }
@@ -2012,6 +2073,7 @@ body::before{opacity:.25}
     document.getElementById("pdfBtn").addEventListener("click",doPrint);
     document.getElementById("refreshBtn").addEventListener("click",function(){ if(CONFIG.SHEET_URL) fetchData(true); else { setBadge("snapshot"); } });
     document.getElementById("badge").addEventListener("click",function(){ if(CONFIG.SHEET_URL) fetchData(true); });
+    document.getElementById("pendBadge").addEventListener("click",flushQueue);
 
     var LB={list:[],i:0};
     function collectLB(){
@@ -2085,6 +2147,7 @@ body::before{opacity:.25}
     }, true);
     loadSelection();
     render();
+    refreshPendBadge();
     fetchData(false);
   })();
   </script>
