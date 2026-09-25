@@ -2,6 +2,7 @@
 <html lang="es" data-theme="warm">
 <head>
 <meta charset="UTF-8">
+<script src="https://yodesarrollomx.github.io/yod-portal/os/proyectos.js?v=2"></script>
 <script src="https://yodesarrollomx.github.io/yod-portal/os/yod-acceso.js?v=1"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Llave Maestra — Aurum · Familia Navarro Muñoz</title>
@@ -678,6 +679,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* ===== tema Fintech Editorial: acentos de sección legibles sobre oscuro (solo estilo) ===== */
 .sec-card::before,.sec-card .ico,.sec-card .num,.viewhead .eyebrow{filter:brightness(1.6) saturate(.85)}
+.folio-chip{display:inline-block;margin-top:6px;font-size:10px;letter-spacing:.06em;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(154,123,63,.14);color:#8a6a2f}
 </style>
 <link rel="stylesheet" href="https://yodesarrollomx.github.io/yod-portal/os/shell.css">
 <style id="yod-metamorf">
@@ -828,6 +830,14 @@ body::before{opacity:.25}
     function isUnlocked(id){ return unlockedIds().indexOf(id)>=0; }
     function unlock(id){ var u=unlockedIds(); if(u.indexOf(id)<0){ u.push(id); try{localStorage.setItem(UNLOCK_KEY,JSON.stringify(u));}catch(e){} } }
     function truthy(v){ v=String(v==null?"":v).trim().toLowerCase(); return v==="1"||v==="true"||v==="sí"||v==="si"||v==="x"||v==="activo"||v==="active"||v==="verdadero"; }
+    /* IN-3 · si la residencia también es un proyecto del registro YOD OS
+       (yod-portal/os/proyectos.js), se ve su folio. Si no lo es, no se inventa. */
+    function folioDe_(pr){
+      try{ var RP=window.YodProyectos; if(!RP) return "";
+        var f=RP.buscar(pr.name)||RP.buscar(pr.id); if(!f) return "";
+        return '<span class="folio-chip" title="Folio del registro YOD OS">'+esc(f.folio)+'</span>';
+      }catch(e){ return ""; }
+    }
     function normalizeProjects(rows){
       return rows.map(function(r,i){
         var act = (r.active!=null?r.active:(r.activo!=null?r.activo:r.activa));
@@ -1589,7 +1599,7 @@ body::before{opacity:.25}
         var tag=pr.active?(pr.url?"Abrir":(isUnlocked(pr.id)?"Abierta":"Con clave")):"Próximamente";
         return '<button class="house-card'+(pr.active?"":" locked")+'" '+(pr.active?('data-project="'+esc(pr.id)+'"'):'disabled')+'>'+
           '<div class="house-cover">'+coverHtml+'<span class="tag">'+tag+'</span></div>'+
-          '<div class="house-body"><h3>'+esc(pr.name)+'</h3><p>'+esc(pr.sub)+'</p></div>'+
+          '<div class="house-body"><h3>'+esc(pr.name)+'</h3><p>'+esc(pr.sub)+'</p>'+folioDe_(pr)+'</div>'+
         '</button>';
       }).join("");
       app.innerHTML='<div class="landing"><div class="landing-h fade">'+
