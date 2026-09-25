@@ -754,7 +754,7 @@ body::before{opacity:.25}
     var PORTERO_LSK = "pyod_clave_v1";   /* credencial que escribe portero.js */
     var WSEC_KEY = "aurum_wsec_v1";      /* clave de escritura tecleada por la diseñadora (solo sesión) */
     function credencial(){ try{return localStorage.getItem(PORTERO_LSK)||"";}catch(e){return "";} }
-    var PYOD_EXEC=window.YOD_PORTERO.original;   /* única copia: yod-portal/os/yod-acceso.js */
+    var PYOD_EXEC=(window.YOD_PORTERO||{}).original;   /* única copia: yod-portal/os/yod-acceso.js */
     function _pyodCerrar(){ try{localStorage.removeItem(PORTERO_LSK);sessionStorage.removeItem("pyod_rol");}catch(e){} location.reload(); }
     function _pyodAviso(){ if(document.getElementById("pyodAviso"))return; var d=document.createElement("div");d.id="pyodAviso";d.style.cssText="position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:2147483000;max-width:min(560px,92vw);background:#221E17;color:#F1EDE3;border:1px solid rgba(255,255,255,.14);border-left:3px solid #B98B3C;border-radius:12px;padding:14px 16px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:13px;line-height:1.5;box-shadow:0 18px 48px rgba(0,0,0,.5)";d.innerHTML='<b style=\"color:#B98B3C\">Tu sesión es válida.</b> Este tablero no validó tu acceso: su backend (Apps Script) necesita re-desplegarse. Tu sesión NO se cerró. <a href=\"https://yodesarrollomx.github.io/yod-portal/os/\" style=\"color:#B98B3C\">Volver a YOD OS</a> · <button id=\"pyodAvX\" style=\"background:none;border:0;color:#8A8272;cursor:pointer;text-decoration:underline;font:inherit\">Ocultar</button>';document.body.appendChild(d);var x=document.getElementById("pyodAvX");if(x)x.onclick=function(){d.remove();}; }
     /* ANTI-LOOP (agosto 2026): con el dominio suspendido el backend contesta
@@ -1719,7 +1719,7 @@ body::before{opacity:.25}
     /* Editar YA NO pide contraseña: manda tu cuenta del Portero. Editan Dirección
        (admin) y Proyectos/Sayri (editor); los clientes solo leen. El servidor
        vuelve a verificar el rol en cada escritura — esto es solo la puerta visual. */
-    var PORTERO_EXEC_FRONT=window.YOD_PORTERO.original;
+    var PORTERO_EXEC_FRONT=(window.YOD_PORTERO||{}).original;
     var ROLES_EDITORES_FRONT={admin:1,editor:1,proyectos:1,direccion:1};
     function puedeEditarCuenta(){
       var k=credencial(); if(!k) return Promise.resolve({ok:false,motivo:"sin sesión"});
