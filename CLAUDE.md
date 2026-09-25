@@ -31,8 +31,8 @@ Tablero web de **Aurum Arquitectos** donde el cliente recorre su programa de int
 | `index.html` | Redirección a `llave-maestra.html` (meta refresh + `location.replace`). |
 | `datos.json` | **Respaldo empacado** del Sheet (13 proyectos, 12 espacios, 129 productos). Se carga si el backend responde `liga` o falla la red (`llave-maestra.html:1481-1496`, commit `b47a5b5`). |
 | `Code.gs` | Backend Apps Script. **NO está rastreado por git** (`.gitignore`) desde el commit `4213307`: es copia de trabajo local. |
-| `SECURITY-DEPLOY.md` | Cómo se reabrió el board tras la contención 2026-07-12. **Parcialmente obsoleto** (ver Decisiones). |
-| `instrucciones-llave-maestra.md` | Guía de despliegue para Alejandro. **Obsoleta y con claves adentro** (ver Hallazgos). |
+| `SECURITY-DEPLOY.md` | Modelo de acceso vigente (Google + rol del Portero). Reescrito 25-sep. |
+| `instrucciones-llave-maestra.md` | Cómo se opera hoy (entrar, editar, portadas). Reescrito 25-sep, sin claves. |
 
 ## Arquitectura de datos
 
